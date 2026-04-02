@@ -34,13 +34,13 @@ To maximize ROI and delivery speed, the SMS logic includes:
 ### 📸 Visual Proof
 
 #### Automation Workflow
-![Workflow Schema](workflow-schema.png)
+![Workflow Schema](assets/workflow-schema.png)
 
 #### Transactional Email (Brevo)
-![Email Preview](email-preview.jpg)
+![Email Preview](assets/email-preview.jpg)
 
 #### Dynamic SMS (JustSend)
-![SMS Preview](sms-preview.jpg)
+![SMS Preview](assets/sms-preview.jpg)
 
 ---
 
