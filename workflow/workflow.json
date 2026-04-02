@@ -1,0 +1,132 @@
+{
+  "name": "Acrobatic Forge – Membership Notification System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "YOUR_PRODUCTION_WEBHOOK_PATH",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 32],
+      "id": "webhook-node",
+      "name": "Webhook",
+      "webhookId": "YOUR_PRODUCTION_WEBHOOK_PATH"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "cond-1", "leftValue": "={{ $json.body.record.status }}", "rightValue": "depleted", "operator": { "type": "string", "operation": "equals" } },
+            { "id": "cond-2", "leftValue": "={{ $json.body.record.notification_preference }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } },
+            { "id": "cond-3", "leftValue": "={{ $json.body.record.reminder_sent }}", "rightValue": false, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [224, 32],
+      "id": "filter-node",
+      "name": "Checking Data"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "profiles",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "keyValue": "={{ $('Webhook').item.json.body.record.user_id }}" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [448, 16],
+      "id": "supabase-get",
+      "name": "Get Data About Client",
+      "credentials": { "supabaseApi": { "id": "REPLACE_WITH_YOUR_ID", "name": "Supabase Connection" } }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  { "leftValue": "={{ $('Webhook').item.json.body.record.notification_preference }}", "rightValue": "sms", "operator": { "type": "string", "operation": "equals" } }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "SMS"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  { "leftValue": "={{ $('Webhook').item.json.body.record.notification_preference }}", "rightValue": "email", "operator": { "type": "string", "operation": "equals" } }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "E-mail"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [672, 16],
+      "id": "switch-node",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://justsend.pl/api/rest/v2/message/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"{{ $node['Webhook'].json.body.record.mentee_id ? 'Czesc ' + $json.full_name + '! Karnet Twojego podopiecznego (' + $node['Webhook'].json.body.record.holder_name_snapshot + ') wygasl w Acrobatic Forge. Kup nowy tutaj: https://your-domain.com/pricing' : 'Czesc ' + $json.full_name + '! Twoj karnet (' + $node['Webhook'].json.body.record.ticket_name_snapshot + ') wlasnie wygasl. Kup nowy tutaj: https://your-domain.com/pricing' }}\",\n  \"to\": \"{{ $json.phone_number }}\",\n  \"from\": \"ACROFORGE\",\n  \"bulkVariant\": \"PRO\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, -160],
+      "id": "justsend-node",
+      "name": "Justsend SMS",
+      "credentials": { "httpHeaderAuth": { "id": "REPLACE_WITH_YOUR_ID", "name": "Justsend API" } }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "memberships",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Webhook').item.json.body.record.id }}" }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "reminder_sent", "fieldValue": "=true" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1344, 32],
+      "id": "supabase-update",
+      "name": "Update Row Message Sent",
+      "credentials": { "supabaseApi": { "id": "REPLACE_WITH_YOUR_ID", "name": "Supabase Connection" } }
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Checking Data", "type": "main", "index": 0 }]] },
+    "Checking Data": { "main": [[{ "node": "Get Data About Client", "type": "main", "index": 0 }]] },
+    "Get Data About Client": { "main": [[{ "node": "Switch", "type": "main", "index": 0 }]] },
+    "Switch": { "main": [[{ "node": "Justsend SMS", "type": "main", "index": 0 }]] },
+    "Justsend SMS": { "main": [[{ "node": "Update Row Message Sent", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
